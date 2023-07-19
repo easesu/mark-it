@@ -3,7 +3,7 @@
   "displayName": "Mark It",
   "publisher": "easesu",
   "description": "create a marker at where you want",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.80.0"
   },
