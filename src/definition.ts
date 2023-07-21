@@ -4,9 +4,11 @@ export enum Action {
   init = 'init',
   addMarker = 'addMarker',
   removeMarker = 'removeMarker',
+  activateMarker = 'activateMarker',
   requestOpenDocument = 'requestOpenDocument',
+  requestRemoveMaker = 'requestRemoveMaker',
+  requestActivateMaker = 'requestActivateMaker',
 }
-
 
 export interface MessagePayload {
   action: Action;
@@ -15,10 +17,28 @@ export interface MessagePayload {
 
 export const WORKSPACE_STORAGE_KEY = 'markIt:markers';
 
-export interface Marker {
+export interface MarkerData {
   id: string;
+  parent?: string;
+  children?: string[];
   content: string;
   start: vscode.Position;
   end: vscode.Position;
   fileName: string;
+  first?: boolean;
+}
+
+export interface MarkerSize {
+  width: number;
+  height: number;
+}
+
+export const DEFAULT_MARKER_SIZE = {
+  width: 80,
+  height: 40,
+};
+
+export interface MarkerPosition {
+  x: number;
+  y: number;
 }

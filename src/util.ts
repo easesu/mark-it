@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Marker } from './definition';
+import { MarkerData } from './definition';
 
 export const generateUuid = (function (): () => string {
 
@@ -64,7 +64,7 @@ export const generateUuid = (function (): () => string {
   };
 })();
 
-export const createMarker = (fileName: string, start: vscode.Position, end: vscode.Position, content: string): Marker => {
+export const createMarker = (fileName: string, start: vscode.Position, end: vscode.Position, content: string): MarkerData => {
   return {
     id: generateUuid(),
     fileName,

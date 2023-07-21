@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import { createMarker } from './util';
-import { Action, Marker, MessagePayload, WORKSPACE_STORAGE_KEY } from './definition';
+import { Action, MarkerData, MessagePayload, WORKSPACE_STORAGE_KEY } from './definition';
 
 export function activate(context: vscode.ExtensionContext) {
+	context.workspaceState.update(WORKSPACE_STORAGE_KEY, null);
 	const provider = new TrackerPanelWebviewProvider(context.extensionUri, context.workspaceState);
 
 	vscode.window.registerWebviewViewProvider('markItView', provider);
@@ -14,17 +15,33 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
 }
 
+interface StorageData {
+	markers: MarkerData[];
+	activeMarkerId: string | null;
+}
+
 class TrackerPanelWebviewProvider implements vscode.WebviewViewProvider {
 	private extesionUri: vscode.Uri;
 	private storage: vscode.Memento;
 	private visible: boolean = false;
 	private view: vscode.WebviewView | undefined = undefined;
-	private markers: Marker[] = [];
+	private markers: MarkerData[] = [];
+	private activeMarker: MarkerData | null = null;
 
 	constructor(extensionPath: vscode.Uri, storage: vscode.Memento) {
 		this.extesionUri = extensionPath;
 		this.storage = storage;
-		this.markers = this.storage.get(WORKSPACE_STORAGE_KEY) || [];
+
+		const previousData = this.storage.get<StorageData>(WORKSPACE_STORAGE_KEY);
+		if (previousData) {
+			this.markers = previousData.markers || [];
+			if (previousData.activeMarkerId) {
+				this.activeMarker = this.markers.find(marker => marker.id === previousData.activeMarkerId) || null;
+			}
+			if (!this.activeMarker) {
+				this.activeMarker = this.markers[this.markers.length - 1] || null;
+			}
+		}
 	}
 
 	resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext<unknown>, token: vscode.CancellationToken): void | Thenable<void> {
@@ -40,6 +57,69 @@ class TrackerPanelWebviewProvider implements vscode.WebviewViewProvider {
 		this.initEvent();
 	}
 
+	openDocument(marker: MarkerData) {
+		vscode.window.showTextDocument(
+			vscode.Uri.file(marker.fileName),
+			{
+				selection: new vscode.Range(marker.start, marker.end)
+			}
+		);
+	}
+
+	findMarker(markerId: string) {
+		return this.markers.find(marker => marker.id === markerId);
+	}
+
+	_removeMarker(markerId: string) {
+		const marker = this.findMarker(markerId);
+		if (!marker) {
+			return false;
+		}
+		const index = this.markers.indexOf(marker);
+		if (index !== -1) {
+			this.markers.splice(index, 1);
+			if (marker.parent) {
+				const parentMarker = this.findMarker(marker.parent);
+				if (parentMarker && parentMarker.children && parentMarker.children.includes(markerId)) {
+					parentMarker.children = parentMarker.children.filter(childId => childId !== markerId);
+				}
+			}
+			if (marker.children) {
+				marker.children.forEach(childId => {
+					this.removeMarker(childId);
+				});
+			}
+			this.syncMarkerState();
+		}
+		return true;
+	}
+
+	removeMarker(markerId: string) {
+		const res = this._removeMarker(markerId);
+		if (res) {
+			this.send(Action.removeMarker, markerId);
+		}
+	}
+
+	_activateMarker(markerId: string) {
+		const marker = this.findMarker(markerId);
+		if (!marker) {
+			return false;
+		}
+		this.activeMarker = marker;
+		this.syncMarkerState();
+		return true;
+	}
+	activateMarker(markerId: string) {
+		const res = this._activateMarker(markerId);
+		if (res) {
+			if (this.activeMarker) {
+				this.openDocument(this.activeMarker);
+			}
+			this.send(Action.activateMarker, markerId);
+		}
+	}
+
 	initEvent() {
 		if (!this.view) {
 			return;
@@ -51,8 +131,10 @@ class TrackerPanelWebviewProvider implements vscode.WebviewViewProvider {
 			switch (data.action) {
 				case Action.init:
 					return this.handleInitAction();
-				case Action.requestOpenDocument:
-					return this.handleOpenDocument(data.data);
+				case Action.requestRemoveMaker:
+					return this.handleRemoveMarker(data.data);
+				case Action.requestActivateMaker:
+					return this.handleActivateMaker(data.data);
 			}
 		});
 	}
@@ -83,33 +165,52 @@ class TrackerPanelWebviewProvider implements vscode.WebviewViewProvider {
 		}
 		const { start, end } = activeTextEditor.selection;
 		const content = activeTextEditor.document.getText(new vscode.Range(start, end));
+		
 		this.addMarker(activeTextEditor.document.fileName, start, end, content);
 	}
 
-	handleOpenDocument(marker: Marker) {
-		vscode.window.showTextDocument(
-			vscode.Uri.file(marker.fileName),
-			{
-				selection: new vscode.Range(marker.start, marker.end)
-			}
-		);
+	handleRemoveMarker(markerId: string) {
+		this.removeMarker(markerId);
+	}
+
+	handleActivateMaker(markerId: string) {
+		this.activateMarker(markerId);
 	}
 
 	initWebview() {
-		this.send(Action.init, this.markers);
+		this.send(Action.init, {
+			markers: this.markers,
+			activeMarkerId: this.activeMarker?.id || null
+		});
+	}
+
+	_addMarker(fileName: string, start: vscode.Position, end: vscode.Position, content: string) {
+		const newMarker = createMarker(fileName, start, end, content);
+		if (this.markers.length === 0) {
+			newMarker.first = true;
+		} else if (this.activeMarker) {
+			newMarker.parent = this.activeMarker.id;
+			if (!this.activeMarker.children) {
+				this.activeMarker.children = [];
+			}
+			this.activeMarker.children.push(newMarker.id);
+		}
+		this.activeMarker = newMarker;
+		this.markers.push(newMarker);
+		this.syncMarkerState();
+		return newMarker;
 	}
 
 	addMarker(fileName: string, start: vscode.Position, end: vscode.Position, content: string) {
-		const newMarker = createMarker(fileName, start, end, content);
-		this.markers.push(newMarker);
-		this.syncMarkerState();
-		if (this.visible) {
-			this.send(Action.addMarker, newMarker);
-		}
+		const newMarker = this._addMarker(fileName, start, end, content);
+		this.send(Action.addMarker, newMarker);
 	}
 
 	syncMarkerState() {
-		this.storage.update(WORKSPACE_STORAGE_KEY, this.markers);
+		this.storage.update(WORKSPACE_STORAGE_KEY, {
+			markers: this.markers,
+			activeMarkerId: this.activeMarker ? this.activeMarker.id : null,
+		});
 	}
 
 	send(action: Action, data: any) {
