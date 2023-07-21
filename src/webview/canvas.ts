@@ -1,5 +1,5 @@
 import { MarkerData } from "../definition";
-import { WebviewEvent } from "./definition";
+import { SVG_NS, WebviewEvent } from "./definition";
 import { Edge } from "./edge";
 import { emit } from "./event";
 import { Marker } from "./marker";
@@ -13,7 +13,7 @@ export class Canvas {
   private _rootMarker: Marker | null = null;
   private _activeMarker: Marker | null = null;
   private _markerMap: Map<string, Marker> = new Map();
-  private _edgeMap: Map<string, Edge> = new Map();
+  private _edgeList: Edge[] = [];
 
   constructor() {
     this._el = document.createElement('div');
@@ -22,7 +22,7 @@ export class Canvas {
     this._container.classList.add('layer-container');
     this._nodeCanvas = document.createElement('div');
     this._nodeCanvas.classList.add('node-layer');
-    this._edgeCanvas = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    this._edgeCanvas = document.createElementNS(SVG_NS, 'svg');
     this._edgeCanvas.classList.add('edge-layer');
     this._el.appendChild(this._container);
     this._container.appendChild(this._nodeCanvas);
@@ -39,6 +39,7 @@ export class Canvas {
     }
   
     const markers: Marker[] = [];
+    const edges: Edge[] = [];
     let rootMarker: Marker | null = null;
     data.markers.forEach(markerData => {
       if (!markerData.first && !markerData.parent) {
@@ -71,8 +72,8 @@ export class Canvas {
       if (marker.data.parent) {
         const parentMarker = this._markerMap.get(marker.data.parent);
         if (parentMarker && parentMarker.data.children && parentMarker.data.children.includes(marker.data.id)) {
-          marker.setParent(parentMarker);
-          parentMarker.addChild(marker);
+          const edge = this._linkMarker(parentMarker, marker);
+          edges.push(edge);
         } else {
           remove(marker);
         }
@@ -98,7 +99,52 @@ export class Canvas {
       activeMarker = rootMarker;
     }
     this.renderMarkers(markers);
+    this.renderEdges(edges);
     this._activateMarker(activeMarker);
+    this.relayout();
+  }
+
+  _linkMarker(parent: Marker, child: Marker) {
+    child.setParent(parent);
+    parent.addChild(child);
+    const edge = this._addEdge(parent, child);
+    parent.addOutEdge(edge);
+    child.addInEdge(edge);
+    return edge;
+  }
+
+  _unlinkMarker(parent: Marker, child: Marker) {
+    child.unsetParent();
+    parent.removeChild(child);
+
+    const outEdge = Edge.findEdgeByEnd(parent.outEdges, child);
+    const inEdge = Edge.findEdgeByStart(child.inEdges, parent);
+    if (outEdge) {
+      parent.removeOutEdge(outEdge);
+      this._removeEdge(outEdge);
+    }
+    if (inEdge) {
+      child.removeInEdge(inEdge);
+    }
+  }
+
+  _removeEdge(edge: Edge) {
+    const index = this._edgeList.indexOf(edge);
+    if (index !== -1) {
+      this._edgeList.splice(index, 1);
+    }
+    this.removeEdgeView(edge);
+  }
+
+  _addEdge(start: Marker, end: Marker) {
+    const edge = new Edge(start, end);
+    this._edgeList.push(edge);
+    return edge;
+  }
+
+  addEdge(start: Marker, end: Marker) {
+    const edge = this._addEdge(start, end);
+    this.renderEdges([edge]);
     this.relayout();
   }
 
@@ -110,6 +156,7 @@ export class Canvas {
 
   addMarker(markerData: MarkerData) {
     const marker = this._addMarker(markerData);
+    let edge: Edge | undefined = undefined;
     if (markerData.first) {
       this._rootMarker = marker;
     }
@@ -117,13 +164,15 @@ export class Canvas {
     if (markerData.parent) {
       const parentMarker = this._markerMap.get(markerData.parent);
       if (parentMarker) {
-        marker.setParent(parentMarker);
-        parentMarker.addChild(marker);
+        edge = this._linkMarker(parentMarker, marker);
       }
     }
 
     this._activateMarker(marker);
     this.renderMarkers([marker]);
+    if (edge) {
+      this.renderEdges([edge]);
+    }
     this.relayout();
   }
 
@@ -132,8 +181,7 @@ export class Canvas {
       return;
     }
     if (marker.parent) {
-      marker.parent.removeChild(marker);
-      marker.unsetParent();
+      this._unlinkMarker(marker.parent, marker);
     }
 
     this._markerMap.delete(marker.data.id);
@@ -175,10 +223,20 @@ export class Canvas {
       this._nodeCanvas.appendChild(marker.render());
     });
   }
+  renderEdges(edges: Edge[]) {
+    edges.forEach(edge => {
+      this._edgeCanvas.appendChild(edge.render());
+    });
+  }
 
   removeMarkerView(marker: Marker) {
     if (marker.el && marker.el.parentElement) {
-      marker.el.parentElement.removeChild(marker.el)
+      marker.el.parentElement.removeChild(marker.el);
+    }
+  }
+  removeEdgeView(edge: Edge) {
+    if (edge.el && edge.el.parentNode) {
+      edge.el.parentNode.removeChild(edge.el);
     }
   }
 
@@ -220,25 +278,32 @@ export class Canvas {
 
     const sizeInfo = calc(rootMarker);
 
-    const layout = (info: Info, parentX: number, parentY: number) => {
-      const width = Math.max(info.width, info.childrenWidth);
-      let left = parentX - width / 2;
-      const top = parentY + info.height + 20;
-    
-      info.children.forEach((childInfo) => {
-        const width = Math.max(childInfo.width, childInfo.childrenWidth);
-        const x = left + width / 2;
-        const y = top;
-        left += width + 20;
-        childInfo.marker.setPosition(x, y);
-        childInfo.marker.updateView();
-        layout(childInfo, x, y);
+    const canvasWidth = Math.max(sizeInfo.width, sizeInfo.childrenWidth);
+    const canvasHeight = sizeInfo.height + (sizeInfo.childrenHeight > 0 ? sizeInfo.childrenHeight + 20 : 0);
+
+    const layout = (info: Info, left: number, top: number) => {
+      let markerLeft = left;
+      if (info.childrenWidth > 0) {
+        markerLeft += info.childrenWidth / 2 - info.width / 2;
+      }
+      info.marker.setPosition(markerLeft, top);
+      info.marker.updateView();
+
+      let childLeft = markerLeft + info.width / 2 - info.childrenWidth / 2;
+      const childTop = top + sizeInfo.height + 20;
+      info.children.forEach(childInfo => {
+        layout(childInfo, childLeft, childTop);
+        childLeft += Math.max(childInfo.width, childInfo.childrenWidth) + 20;
       });
     };
+    layout(sizeInfo, canvasWidth / 2 - Math.max(sizeInfo.width, sizeInfo.childrenWidth) / 2, 0);
 
-    sizeInfo.marker.updateView();
+    this._el.style.width = `${canvasWidth}px`;
+    this._el.style.height = `${canvasHeight}px`;
 
-    layout(sizeInfo, 0, 0);
+    this._edgeList.forEach(edge => {
+      edge.update();
+    });
   }
   
 }

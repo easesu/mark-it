@@ -1,5 +1,6 @@
 import { DEFAULT_MARKER_SIZE, MarkerData, MarkerPosition, MarkerSize } from "../definition";
 import { WebviewEvent } from "./definition";
+import { Edge } from "./edge";
 import { emit } from "./event";
 
 export class Marker {
@@ -9,6 +10,8 @@ export class Marker {
   private _children: Marker[] = [];
   private _size: MarkerSize = { ...DEFAULT_MARKER_SIZE };
   private _position: MarkerPosition = {x: 0, y: 0};
+  private _inEdges: Edge[] = [];
+  private _outEdges: Edge[] = [];
 
   constructor(data: MarkerData) {
     this._data = data;
@@ -26,6 +29,14 @@ export class Marker {
     return this._size.height;
   }
 
+  get x() {
+    return this._position.x;
+  }
+
+  get y() {
+    return this._position.y;
+  }
+
   get data() {
     return this._data;
   }
@@ -36,6 +47,14 @@ export class Marker {
 
   get children() {
     return this._children;
+  }
+
+  get inEdges() {
+    return this._inEdges;
+  }
+
+  get outEdges() {
+    return this._outEdges;
   }
 
   setParent(parent: Marker) {
@@ -54,6 +73,28 @@ export class Marker {
     const idx = this._children.indexOf(child);
     if (idx !== -1) {
       this._children.splice(idx, 1);
+    }
+  }
+
+  addInEdge(edge: Edge) {
+    this._inEdges.push(edge);
+  }
+
+  addOutEdge(edge: Edge) {
+    this._outEdges.push(edge);
+  }
+
+  removeInEdge(edge: Edge) {
+    const index = this._inEdges.indexOf(edge);
+    if (index !== -1) {
+      this._inEdges.splice(index, 1);
+    }
+  }
+
+  removeOutEdge(edge: Edge) {
+    const index = this._outEdges.indexOf(edge);
+    if (index !== -1) {
+      this._outEdges.splice(index, 1);
     }
   }
 
