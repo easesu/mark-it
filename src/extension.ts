@@ -164,7 +164,13 @@ class TrackerPanelWebviewProvider implements vscode.WebviewViewProvider {
 			return;
 		}
 		const { start, end } = activeTextEditor.selection;
-		const content = activeTextEditor.document.getText(new vscode.Range(start, end));
+		let content: string = '';
+		if (start.line === end.line && start.character === end.character) {
+			const line = activeTextEditor.document.lineAt(start.line);
+			content = line.text.trim();
+		} else {
+			content = activeTextEditor.document.getText(new vscode.Range(start, end));
+		}
 		
 		this.addMarker(activeTextEditor.document.fileName, start, end, content);
 	}
