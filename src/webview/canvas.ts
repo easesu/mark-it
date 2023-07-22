@@ -14,6 +14,10 @@ export class Canvas {
   private _activeMarker: Marker | null = null;
   private _markerMap: Map<string, Marker> = new Map();
   private _edgeList: Edge[] = [];
+  private _canvasWidth: number = 0;
+  private _canvasHeight: number = 0;
+  private _translateX: number = 0;
+  private _translateY: number = 0;
 
   constructor() {
     this._el = document.createElement('div');
@@ -102,6 +106,18 @@ export class Canvas {
     this.renderEdges(edges);
     this._activateMarker(activeMarker);
     this.relayout();
+  }
+
+  moveTo(x: number, y: number) {
+    this._translateX = x;
+    this._translateY = y;
+    this.updateViewPosition();
+  }
+
+  moveBy(deltaX: number, deltaY: number) {
+    this._translateX += deltaX;
+    this._translateY += deltaY;
+    this.updateViewPosition();
   }
 
   _linkMarker(parent: Marker, child: Marker) {
@@ -304,12 +320,18 @@ export class Canvas {
     };
     layout(sizeInfo, canvasWidth / 2 - Math.max(sizeInfo.width, sizeInfo.childrenWidth) / 2, 0);
 
+    this._canvasWidth = canvasWidth;
+    this._canvasHeight = canvasHeight;
     this._el.style.width = `${canvasWidth}px`;
     this._el.style.height = `${canvasHeight}px`;
 
     this._edgeList.forEach(edge => {
       edge.update();
     });
+  }
+
+  updateViewPosition() {
+    this._container.style.transform = `translate(${this._translateX}px, ${this._translateY}px)`;
   }
   
 }

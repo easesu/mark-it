@@ -1,3 +1,7 @@
+html {
+  cursor: move;
+}
+
 .canvas {
   position: fixed;
   left: 50%;
@@ -53,6 +57,7 @@
   border-radius: 4px;
   cursor: pointer;
   color: var(--vscode-foreground);
+  user-select: none;
 }
 .marker-item:hover {
   background-color: var(--vscode-list-hoverBackground);
