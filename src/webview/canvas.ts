@@ -215,7 +215,13 @@ export class Canvas {
   }
 
   _activateMarker(marker: Marker) {
-    this._activeMarker = marker;
+    if (this._activeMarker) {
+      this._activeMarker.deactivate();
+    }
+    if (marker) {
+      this._activeMarker = marker;
+      marker.activate();
+    }
   }
 
   renderMarkers(markers: Marker[]) {

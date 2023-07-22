@@ -3,7 +3,7 @@ import { createMarker } from './util';
 import { Action, MarkerData, MessagePayload, WORKSPACE_STORAGE_KEY } from './definition';
 
 export function activate(context: vscode.ExtensionContext) {
-	context.workspaceState.update(WORKSPACE_STORAGE_KEY, null);
+	// context.workspaceState.update(WORKSPACE_STORAGE_KEY, null);
 	const provider = new TrackerPanelWebviewProvider(context.extensionUri, context.workspaceState);
 
 	vscode.window.registerWebviewViewProvider('markItView', provider);

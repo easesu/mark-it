@@ -34,8 +34,8 @@ export interface MarkerSize {
 }
 
 export const DEFAULT_MARKER_SIZE = {
-  width: 80,
-  height: 40,
+  width: 120,
+  height: 46,
 };
 
 export interface MarkerPosition {

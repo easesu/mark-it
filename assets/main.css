@@ -52,38 +52,23 @@
   padding: 3px 5px;
   border-radius: 4px;
   cursor: pointer;
+  color: var(--vscode-foreground);
 }
 .marker-item:hover {
   background-color: var(--vscode-list-hoverBackground);
 }
-.marker-item-remove {
-  display: none;
-  position: absolute;
-  top: 4px;
-  right: 5px;
-  width: 20px;
-  height: 20px;
-  border-radius: 3px;
+.marker-item.is-active,
+.marker-item.is-active:hover {
+  border: 1px solid var(--vscode-list-focusOutline);
+  background-color: var(--vscode-list-inactiveSelectionBackground);
 }
-.marker-item-remove:hover {
-  background-color: var(--vscode-toolbar-hoverBackground);
-}
-.marker-item-remove::before,
-.marker-item-remove::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 16px;
-  height: 1px;
-  background-color: var(--vscode-foreground);
-  transform: translate(-50%, -50%) rotate(45deg);
-}
-.marker-item-remove::after {
-  transform: translate(-50%, -50%) rotate(-45deg);
-}
-.marker-item:hover .marker-item-remove {
-  display: block;
+.marker-item-main {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  column-gap: 3px;
+  height: 22px;
 }
 
 .marker-item-content {
@@ -91,10 +76,38 @@
   font-size: 12px;
   line-height: 16px;
   overflow: hidden;
-  color: var(--vscode-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.marker-item:hover .marker-item-content {
-  color: var(--vscode-textLink-activeForeground);
+
+.marker-item-remove {
+  position: relative;
+  flex: 0 0 auto;
+  display: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+}
+.marker-item-remove:hover {
+  background-color: var(--vscode-toolbar-hoverBackground);
+}
+.marker-item:hover .marker-item-remove {
+  display: block;
+}
+.marker-item-remove::before,
+.marker-item-remove::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 13px;
+  height: 1px;
+  background-color: var(--vscode-icon-foreground);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.marker-item-remove::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .marker-item-filename {
@@ -104,5 +117,5 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
 }

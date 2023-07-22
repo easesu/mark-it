@@ -12,6 +12,7 @@ export class Marker {
   private _position: MarkerPosition = {x: 0, y: 0};
   private _inEdges: Edge[] = [];
   private _outEdges: Edge[] = [];
+  private _active: boolean = false;
 
   constructor(data: MarkerData) {
     this._data = data;
@@ -55,6 +56,10 @@ export class Marker {
 
   get outEdges() {
     return this._outEdges;
+  }
+
+  get active() {
+    return this._active;
   }
 
   setParent(parent: Marker) {
@@ -103,16 +108,30 @@ export class Marker {
     this._position.y = y;
   }
 
+  activate() {
+    this._active = true;
+    this.updateActiveView();
+  }
+
+  deactivate() {
+    this._active = false;
+    this.updateActiveView();
+  }
+
   render() {
     const el = document.createElement('div');
     el.classList.add('marker-item');
     el.title = this._data.fileName;
     el.innerHTML = `
-      <div class="marker-item-remove" data-role="remove"></div>
-      <div class="marker-item-content">${this._data.content}</div>
+      <div class="marker-item-main">
+        <div class="marker-item-content">${this._data.content}</div>
+        <div class="marker-item-remove" data-role="remove"></div>
+      </div>
       <div class="marker-item-filename">${this._data.fileName}</div>
     `;
     this._el = el;
+    this.updateView();
+    this.updateActiveView();
     this.initEvent();
     return el;
   }
@@ -125,6 +144,16 @@ export class Marker {
         left: `${this._position.x}px`,
         top: `${this._position.y}px`,
       });
+    }
+  }
+
+  updateActiveView() {
+    if (this._el) {
+      if (this._active) {
+        this._el.classList.add('is-active');
+      } else {
+        this._el.classList.remove('is-active');
+      }
     }
   }
 
