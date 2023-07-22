@@ -171,6 +171,10 @@ class TrackerPanelWebviewProvider implements vscode.WebviewViewProvider {
 		} else {
 			content = activeTextEditor.document.getText(new vscode.Range(start, end));
 		}
+
+		if (!content) {
+			return;
+		}
 		
 		this.addMarker(activeTextEditor.document.fileName, start, end, content);
 	}
