@@ -121,13 +121,15 @@ export class Marker {
   render() {
     const el = document.createElement('div');
     el.classList.add('marker-item');
-    el.title = this._data.fileName;
+    el.title = `${this._data.content}\n${this._data.fileName}`;
+    const fileNameParts = this._data.fileName.split('/');
+    const shortFileName = fileNameParts[fileNameParts.length - 1];
     el.innerHTML = `
       <div class="marker-item-main">
         <div class="marker-item-content">${this._data.content}</div>
         <div class="marker-item-remove" data-role="remove"></div>
       </div>
-      <div class="marker-item-filename">${this._data.fileName}</div>
+      <div class="marker-item-filename">${shortFileName}</div>
     `;
     this._el = el;
     this.updateView();
